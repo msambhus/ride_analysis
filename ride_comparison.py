@@ -358,16 +358,6 @@ def extract_from_planned_actual(planned, actual, stages):
 def get_line_color(value):
     return '#FF0000' if value < 0 else '#00FF00'
 
-def setup_line_graph():
-    fig = make_subplots(
-        rows=1,
-        cols=1,
-        shared_xaxes=True,
-        subplot_titles=('Control Stops'),
-        specs=[[{"secondary_y": True}]]
-    )
-    return fig
-
 def display_graphs(fig, control_stops, stages):
     # Create a list of annotations
     annotations = []
@@ -408,14 +398,22 @@ def display_graphs(fig, control_stops, stages):
             )
         )
     fig.update_xaxes(showticklabels=True) # show all the xticks
+
     fig.update_layout(
-        title='Paris Brest Paris 2023 - Team Asha. Banked Time',
+        title={
+            'text': 'Paris Brest Paris 2023 - Team Asha. Banked Time Comparison',
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'y':0.9,
+            'x':0.5,
+        },
         width=1600,
         height=800,
         xaxis=dict(title='Distance (miles)'),
         yaxis=dict(title='Elapsed Time (hours)'),
         annotations=annotations,
     )
+
     fig.show()
 
 
@@ -430,11 +428,10 @@ def plot_line_graph(fig, name, color, distances, banked_times):
         mode='lines',
         name=name,
         showlegend=True,
-        line=dict(color=color, width=1),  # Set line color and width
+        line=dict(color=color, width=1.5),  # Set line color and width
     )
     # Banked time line trace
-    fig.add_trace(trace_banked_time, row=1, col=1)
-
+    fig.add_trace(trace_banked_time)
 
 if __name__ == '__main__':
     athletes = []
@@ -446,8 +443,7 @@ if __name__ == '__main__':
     athletes.append(['Vijayshree', 'green', '/Users/msambhus/Downloads/PBP and Turkey trip/Vijayshree_GOTOES_7849963341494499_2.fit'])
 
     control_stops, stages, planned = calculate_stages_plan()
-    fig = setup_line_graph()
-
+    fig = go.Figure()
     for athlete in athletes:
         actual = []
         actual_elapsed_stream = []
