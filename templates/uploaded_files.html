@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uploaded Files</title>
+</head>
+<body>
+    <h1>Uploaded Files</h1>
+    <form action="/show_results" method="POST">
+        {% for file in uploaded_files %}
+        <label>
+            <input type="checkbox" name="selected_files" value="{{ file }}">
+            {{ file }}
+        </label>
+        <br>
+        {% endfor %}
+        <br>
+        <input type="submit" value="Show Results">
+    </form>
+
+    <!-- Add an "Upload More Files" button -->
+    <form action="/" method="GET">
+        <input type="submit" value="Upload More Files">
+    </form>
+</body>
+</html>

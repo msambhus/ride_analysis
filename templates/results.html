@@ -1,0 +1,68 @@
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<!-- Add a placeholder for the graph -->
+<div id="graph"></div>
+
+<!-- Add a button to go back to the Uploaded Files page -->
+<div>
+    <a href="{{ url_for('uploaded_files') }}" class="btn btn-primary">Back to Uploaded Files</a>
+</div>
+
+<script>
+    // Sample data for plotting (replace with your actual data)
+    var selected_files = {{ selected_files | tojson | safe }};
+    var data = {{ data | tojson | safe }};
+
+    // Extract control names and distances (replace this with your actual data)
+    var control_names = {{ control_names | tojson | safe }};
+    var control_distances = {{ control_distances | tojson | safe }};
+
+    // Create traces for each selected file
+    var traces = [];
+
+    for (var i = 0; i < selected_files.length; i++) {
+        var file = selected_files[i];
+        var fileData = data[file];
+
+        // Create a trace for the current file
+        var trace = {
+            x: fileData.distances,
+            y: fileData.banked_times,
+            mode: 'lines',
+            name: file,
+            type: 'scatter'
+        };
+
+        traces.push(trace);
+    }
+
+    // Create the layout for the graph
+    var layout = {
+        title: 'Paris Brest Paris 2023 - Team Asha. Banked Time Comparison', // Change the title
+        xaxis: {
+            title: 'Distance (miles)'
+        },
+        yaxis: {
+            title: 'Banked Time (hours)'
+        },
+        // Add annotations for control names at the bottom
+        annotations: control_names.map(function(name, index) {
+            return {
+                x: control_distances[index],
+                y: -0.1, // Adjust the Y position for better visibility
+                text: name,
+                showarrow: false,
+                font: {
+                    size: 10
+                },
+                xref: 'x',
+                yref: 'y',
+                textangle: -90
+            };
+        }),
+        height: 800 // Set the height of the graph to 800 pixels
+    };
+
+    // Create the plot with Plotly
+    Plotly.newPlot('graph', traces, layout);
+</script>
