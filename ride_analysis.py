@@ -838,12 +838,17 @@ def plot_line_graph(actual_elapsed_stream, distances, elapsed_times, banked_time
 
 if __name__ == '__main__':
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/PBP_2023_done_and_dusted_.fit'
-    strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Mihir_GOTOES_5397553592749899.fit'
+    #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Mihir_GOTOES_5397553592749899.fit'
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Vijayshree_GOTOES_7849963341494499_2.fit'
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Venki_Paris_Brest_Paris.fit'
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Surya_GOTOES_9248055260272266.fit'
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Naveen_Paris_Brest_Paris_2023.fit'
     #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Ashok_GOTOES_6219776426557669.fit'
+    #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Nitin_GOTOES_7858753058560699.fit'
+    #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Nikhil_GOTOES_2470144154616378.fit'
+    #strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Anantha_GOTOES_4159098704085961.fit'
+    strava_file_path = '/Users/msambhus/Downloads/PBP and Turkey trip/Shriram_GOTOES_6708753531038844.fit'
+
 
     control_stops, stages, planned = calculate_stages_plan()
     actual_elapsed_stream, distances, elapsed_times, banked_times, banked_colors, actual_breaks, actual_merged_stage_breaks, total_break_time = parse_fit_file(strava_file_path)

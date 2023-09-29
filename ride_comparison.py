@@ -8,17 +8,17 @@ import plotly.express as px
 import pandas as pd
 
 start_time = None  # Define start_time here
-local_timezone = pytz.timezone('Europe/Paris')
-utc = pytz.timezone('UTC')
-aggregate_breaks = 5  # aggregate stops within N minutes
-min_break_duration = 0.5  # minimum stop duration to be considered as a stop
-default_elevation_gain = 51 #ft/mile
-break_duration_display_threshold = 360 #seconds
-first_half_time = (timedelta(hours=40, minutes=19).total_seconds()/3600) #hours
-second_half_hours = (timedelta(hours=49, minutes=50).total_seconds()/3600) #hours
-first_half_dist = 377.5 #miles
-second_half_dist = 385 #miles
-control_dist_margin_of_error = 5 #miles
+LOCAL_TIMEZONE = pytz.timezone('Europe/Paris')
+UTC = pytz.timezone('UTC')
+AGGREGATE_BREAKS = 5  # aggregate stops within N minutes
+MIN_BREAK_DURATION = 0.5  # minimum stop duration to be considered as a stop
+DEFAULT_ELEVATION_GAIN = 51 #ft/mile
+BREAK_DURATION_DISP_THRESHOLD = 360 #seconds
+FIRST_HALF_TIME = (timedelta(hours=40, minutes=19).total_seconds() / 3600) #hours
+SECOND_HALF_TIME = (timedelta(hours=49, minutes=50).total_seconds() / 3600) #hours
+FIRST_HALF_DISTANCE = 377.5 #miles
+SECOND_HALF_DISTANCE = 385 #miles
+CONTROL_DIST_MARGIN_OF_ERROR = 5 #miles
 
 control_stops = []
 stages = []
@@ -75,7 +75,7 @@ def calculate_stages_plan():
             dist = end[0]-start[0]
             elev_gain = end[3]
             profile = elev_gain/dist
-            elevation_difficulty = profile/default_elevation_gain
+            elevation_difficulty = profile / DEFAULT_ELEVATION_GAIN
             stages.append((i, i, i+1, end[2], dist, elev_gain, profile, elevation_difficulty, end[0]))
 
             elapsed_stage_time = elapsed_stage_time_after_control + timedelta(hours=parse_control_time(input_data[i+1][4])) + timedelta(hours=parse_control_time(input_data[i+1][5]))
@@ -117,8 +117,8 @@ def parse_fit_file(file_path):
             for record_data in record:
                 if record_data.name == 'timestamp':
                     timestamp = record_data.value
-                    timestamp = utc.localize(timestamp)
-                    timestamp = timestamp.astimezone(local_timezone)
+                    timestamp = UTC.localize(timestamp)
+                    timestamp = timestamp.astimezone(LOCAL_TIMEZONE)
                 elif record_data.name == 'distance':  # Added for distance
                     distance = record_data.value / 1609.34  # Convert meters to miles
                 elif record_data.name == 'speed':
@@ -133,14 +133,14 @@ def parse_fit_file(file_path):
                     distances.append(distance)  # Store from the record
                     elapsed_times.append(elapsed_time)  # Store from the record
                     #Store banked time: time needed for 377.7 is 40 hours. for the remaining 385 is 50 hours
-                    if distance <= first_half_dist:
-                        banked_time = ((first_half_time * distance)/first_half_dist) - elapsed_time
+                    if distance <= FIRST_HALF_DISTANCE:
+                        banked_time = ((FIRST_HALF_TIME * distance) / FIRST_HALF_DISTANCE) - elapsed_time
                         if banked_time<0:
                             banked_colors.append('red')
                         else:
                             banked_colors.append('green')
                     else:
-                        banked_time = (first_half_time + ((second_half_hours) * (distance-first_half_dist))/second_half_dist) - elapsed_time
+                        banked_time = (FIRST_HALF_TIME + ((SECOND_HALF_TIME) * (distance - FIRST_HALF_DISTANCE)) / SECOND_HALF_DISTANCE) - elapsed_time
                         if banked_time<0:
                             banked_colors.append('red')
                         else:
@@ -163,7 +163,7 @@ def parse_fit_file(file_path):
                         if stop_start_time is not None:
                             stop_end_time = prev_timestamp
                             stop_duration = stop_end_time - stop_start_time
-                            if(stop_duration.total_seconds() >= min_break_duration * 60):  # Include stops that are min_stop_duration minutes or longer
+                            if(stop_duration.total_seconds() >= MIN_BREAK_DURATION * 60):  # Include stops that are min_stop_duration minutes or longer
                                 actual_breaks.append((stop_start_time, stop_end_time, distance, stop_duration, ''))
                                 #print(f'Break: {len(actual_breaks)}, actual_stream.idx: {len(actual_elapsed_stream)}, start {stop_start_time}, end: {stop_end_time}, duration: {stop_duration}, elapsed_time {elapsed_time}, distance: {distance}, speed: {speed}, banked_time: {banked_time}')
                             stop_start_time = None
@@ -215,13 +215,13 @@ def merge_breaks(actual_breaks, control_stops, stages):
             current_end = end
         else:
 
-            if duration.total_seconds() >= min_break_duration * 60:  # Include stops that are min_stop_duration minutes or longer
+            if duration.total_seconds() >= MIN_BREAK_DURATION * 60:  # Include stops that are min_stop_duration minutes or longer
 
                 for stop in control_stops:
                     control_id, control_name, control_distance = stop
-                    if distance < control_distance+control_dist_margin_of_error:
+                    if distance < control_distance+CONTROL_DIST_MARGIN_OF_ERROR:
                         ctrl_idx = control_id
-                        if abs(control_distance - distance) <= control_dist_margin_of_error:
+                        if abs(control_distance - distance) <= CONTROL_DIST_MARGIN_OF_ERROR:
                             tag = 'control'
                         else:
                             tag = 'micro'
@@ -256,11 +256,11 @@ def calculate_stages_actual(actual_elapsed_stream, stages, control_stops, actual
         #control_stops[start_control_id][2]
         #end_distance = control_stops[end_control_id][2]
         # Find the closest recorded distances to the control points
-        closest_end_distance = min(distances, key=lambda x: abs(x - (end_distance+control_dist_margin_of_error)))
+        closest_end_distance = min(distances, key=lambda x: abs(x - (end_distance + CONTROL_DIST_MARGIN_OF_ERROR)))
         if(i == 0):
             closest_start_distance = min(distances, key=lambda x: abs(x - (start_distance)))
         else:
-            closest_start_distance = min(distances, key=lambda x: abs(x - (start_distance+control_dist_margin_of_error)))
+            closest_start_distance = min(distances, key=lambda x: abs(x - (start_distance + CONTROL_DIST_MARGIN_OF_ERROR)))
 
         # Find the closest elapsed times to the control points
         closest_start_time = elapsed_times[distances.index(closest_start_distance)]
@@ -407,8 +407,8 @@ def display_graphs(fig, control_stops, stages):
             'y':0.9,
             'x':0.5,
         },
-        width=1600,
-        height=800,
+        width=2400,
+        height=1200,
         xaxis=dict(title='Distance (miles)'),
         yaxis=dict(title='Elapsed Time (hours)'),
         annotations=annotations,
@@ -435,12 +435,16 @@ def plot_line_graph(fig, name, color, distances, banked_times):
 
 if __name__ == '__main__':
     athletes = []
+    athletes.append(['Anantha', 'darkcyan', '/Users/msambhus/Downloads/PBP and Turkey trip/Anantha_GOTOES_4159098704085961.fit'])
     athletes.append(['Ashok', 'purple', '/Users/msambhus/Downloads/PBP and Turkey trip/Ashok_GOTOES_6219776426557669.fit'])
     athletes.append(['Mihir', 'red', '/Users/msambhus/Downloads/PBP and Turkey trip/Mihir_GOTOES_5397553592749899.fit'])
     athletes.append(['Naveen', 'orange', '/Users/msambhus/Downloads/PBP and Turkey trip/Naveen_Paris_Brest_Paris_2023.fit'])
+    athletes.append(['Nikhil', 'darkgrey', '/Users/msambhus/Downloads/PBP and Turkey trip/Nikhil_GOTOES_2470144154616378.fit'])
+    athletes.append(['Nitin', 'yellowgreen', '/Users/msambhus/Downloads/PBP and Turkey trip/Nitin_GOTOES_7858753058560699.fit'])
     athletes.append(['Surya', 'black', '/Users/msambhus/Downloads/PBP and Turkey trip/Surya_GOTOES_9248055260272266.fit'])
     athletes.append(['Venki', 'blue', '/Users/msambhus/Downloads/PBP and Turkey trip/Venki_Paris_Brest_Paris.fit'])
     athletes.append(['Vijayshree', 'green', '/Users/msambhus/Downloads/PBP and Turkey trip/Vijayshree_GOTOES_7849963341494499_2.fit'])
+    athletes.append(['Shriram', 'gold', '/Users/msambhus/Downloads/PBP and Turkey trip/Shriram_GOTOES_6708753531038844.fit'])
 
     control_stops, stages, planned = calculate_stages_plan()
     fig = go.Figure()
