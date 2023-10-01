@@ -1,25 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- upload.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Uploaded Files</title>
+    <title>Athletes</title>
 </head>
 <body>
-    <h1>Uploaded Files</h1>
+    <h1></h1>
+
+    <p></p>
+    <h3>Compare Athletes: </h3><br/>
     <form action="/show_results" method="POST">
-        {% for file in uploaded_files %}
-        <label>
-            <input type="checkbox" name="selected_files" value="{{ file }}">
-            {{ file }}
-        </label>
-        <br>
+
+        {% for metadata in metadata_list %}
+        <div class="form-group row">
+            <div >
+                <input type="checkbox" name="selected_files" value="{{ metadata.file_name }}">
+            </div>
+            <div class="col-6">
+                <label for="{{ metadata.file_name }}">{{ metadata.athlete_name }}</label>
+            </div>
+        </div>
         {% endfor %}
+
+       <hr>
+
         <br>
         <input type="submit" value="Show Results">
     </form>
+    <hr>
+    <p></p>
 
-    <!-- Add an "Upload More Files" button -->
-    <form action="/" method="GET">
-        <input type="submit" value="Upload More Files">
-    </form>
 </body>
 </html>
+
+{% endblock %}

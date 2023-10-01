@@ -1,14 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+
 <!-- upload.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Upload File</title>
+    <title>Athletes</title>
 </head>
 <body>
-    <h1>Upload a File</h1>
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload">
+    <h1></h1>
+
+    <p></p>
+    <h3>Compare Athletes: </h3><br/>
+    <form action="/show_results" method="POST">
+
+        {% for file in uploaded_files %}
+        <label>
+            <input type="checkbox" name="selected_files" value="{{ file }}">
+            {{ file.athlete_name }}
+        </label>
+        <br>
+
+        {% endfor %}
+        <hr>
+
+        <br>
+        <input type="submit" value="Show Results">
     </form>
+    <hr>
+    <p></p>
+    <h3>Add more Athletes</h3>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="athlete_name">Athlete's Name</label>
+                    <input type="text" name="athlete_name" id="athlete_name" class="form-control" size="15">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="file">Choose File</label>
+                    <input type="file" name="file" id="file" class="form-control-file">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+    <hr>
+    <p></p>
+
 </body>
 </html>
+
+{% endblock %}

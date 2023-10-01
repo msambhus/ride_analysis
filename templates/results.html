@@ -1,3 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <!-- Add a placeholder for the graph -->
@@ -5,7 +8,7 @@
 
 <!-- Add a button to go back to the Uploaded Files page -->
 <div>
-    <a href="{{ url_for('uploaded_files') }}" class="btn btn-primary">Back to Uploaded Files</a>
+    <a href="{{ url_for('uploaded_files') }}" class="btn btn-primary">Compare more Athletes</a>
 </div>
 
 <script>
@@ -66,3 +69,5 @@
     // Create the plot with Plotly
     Plotly.newPlot('graph', traces, layout);
 </script>
+
+{% endblock %}

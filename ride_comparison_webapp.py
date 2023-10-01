@@ -9,6 +9,8 @@ import pandas as pd
 import os
 from flask import Flask, render_template, request, redirect, url_for
 from flask_caching import Cache
+from werkzeug.utils import secure_filename
+import json
 
 # Create the Flask app
 app = Flask(__name__)
@@ -458,26 +460,81 @@ def plot_line_graph(fig, name, color, distances, banked_times):
 
 @app.route('/')
 def upload_file():
-    return render_template('upload.html')
+    #uploaded_files = os.listdir(app.config['UPLOAD_FOLDER'])
+    #print(f'Initial Uploaded files: {uploaded_files}')
+    #uploaded_files.remove('.DS_Store')
+    #print(f'After removing 0th element Uploaded files: {uploaded_files}')
 
-@app.route('/upload', methods=['POST'])
+    #return render_template('uploaded_files.html', uploaded_files=uploaded_files)
+    return redirect('/uploaded_files')
+
+
+@app.route('/upload', methods=['GET', 'POST'])
 def upload():
-    if 'file' not in request.files:
-        return redirect(request.url)
+    uploaded_files = os.listdir(app.config['UPLOAD_FOLDER'])
+    print(f'Initial Uploaded files: {uploaded_files}')
+    uploaded_files.remove('.DS_Store')
+    print(f'After removing 0th element Uploaded files: {uploaded_files}')
 
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(request.url)
+    if request.method == 'POST':
+        # Handle file upload if it's a POST request
+        if 'file' not in request.files:
+            return redirect(request.url)
 
-    if file:
-        filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filename)
-        return redirect(url_for('uploaded_files'))
+        file = request.files['file']
+        if file.filename == '':
+            return redirect(request.url)
 
-@app.route('/uploaded_files')
+        if file and file.filename != '.DS_Store':
+            # Get the athlete's name from the form
+            athlete_name = request.form.get('athlete_name')
+            # Create a dictionary to store metadata
+            metadata = {
+                'athlete_name': athlete_name,
+                'file_name': file.filename,
+                }
+
+            file.metadata = metadata
+            filename = secure_filename(file.filename)
+            metadata_filename = filename + ".json"
+
+            # Save the metadata as a separate JSON file
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], metadata_filename), 'w') as metadata_file:
+                json.dump(metadata, metadata_file)
+
+            # Save the uploaded file with its original filename
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            print(f'Uploaded file: {file}')
+
+        # Update the list of uploaded files after saving the new file
+        uploaded_files = os.listdir(app.config['UPLOAD_FOLDER'])
+
+    print(f'Uploaded files: {uploaded_files}')
+    return render_template('upload.html', uploaded_files=uploaded_files)
+
+@app.route('/uploaded_files', methods=['GET', 'POST'])
 def uploaded_files():
     uploaded_files = os.listdir(app.config['UPLOAD_FOLDER'])
-    return render_template('uploaded_files.html', uploaded_files=uploaded_files)
+    print(f'Initial Uploaded files: {uploaded_files}')
+    uploaded_files.remove('.DS_Store')
+    new_uploaded_files = [dc for dc in uploaded_files if 'json' not in dc]
+    print(f'After removing 0th element and json files: {new_uploaded_files}')
+    # Retrieve metadata for selected files
+    metadata_list = []
+    for filename in new_uploaded_files:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        metadata_filename = filename + ".json"
+        metadata_file_path = os.path.join(app.config['UPLOAD_FOLDER'], metadata_filename)
+        # Check if the metadata file exists
+        if os.path.exists(metadata_file_path):
+            with open(metadata_file_path, 'r') as metadata_file:
+                metadata = json.load(metadata_file)
+                metadata_list.append(metadata)
+                print(f'metadata: {metadata}')
+        else:
+            metadata_list.append({})  # No metadata found
+
+    return render_template('uploaded_files.html', selected_files=new_uploaded_files, metadata_list=metadata_list)
 
 @app.route('/show_results', methods=['POST'])
 def show_results():
@@ -494,20 +551,7 @@ def show_results():
     if cached_data:
         data_for_selected_files = cached_data
     else:
-        # Compute the data and cache it
-        for file in selected_files:
-            # Check if the file exists in the uploads folder
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file)
-            if os.path.exists(file_path):
-                # Call the parse_fit_file function to get distances and banked_times
-                actual_elapsed_stream, distances, elapsed_times, banked_times, _, _, actual_merged_stage_breaks, _ = parse_fit_file(file_path)
-                data_for_selected_files[file] = {'distances': distances, 'banked_times': banked_times}
-            else:
-                data_for_selected_files[file] = {'distances': [], 'banked_times': []}  # Handle file not found
-
-        # Cache the computed data
-        cache.set('data_for_selected_files', data_for_selected_files)
-
+        load_data_into_cache()
 
     return render_template('results.html', selected_files=selected_files, data=data_for_selected_files, control_names=control_names, control_distances=control_distances)
 
@@ -516,10 +560,36 @@ def clear_cache_on_start():
     cache.clear()
     print("Cache cleared on server start")
 
+# Function to load data from uploaded files and store it in cache
+def load_data_into_cache():
+    selected_files = os.listdir(app.config['UPLOAD_FOLDER'])
+    data_for_selected_files = {}
+    selected_files.remove('.DS_Store')
+    new_selected_files = [dc for dc in selected_files if 'json' not in dc]
+    print(f'Loading data for {new_selected_files}')
+    for file in new_selected_files:
+        if (file != '.DS_Store'):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file)
+            if os.path.exists(file_path):
+                # Load data from the file and format it as needed
+                # Example: actual_elapsed_stream, distances, banked_times = parse_fit_file(file_path)
+                actual_elapsed_stream, distances, elapsed_times, banked_times, _, _, actual_merged_stage_breaks, _ = parse_fit_file(file_path)
+                data_for_selected_files[file] = {'distances': distances, 'banked_times': banked_times}
+            else:
+                data_for_selected_files[file] = {'distances': [], 'banked_times': []}  # Handle file not found
+            print(f'Loaded data for {file_path}')
+
+
+    # Store the data in the cache
+    cache.set('data_for_selected_files', data_for_selected_files)
+
 if __name__ == '__main__':
     # Clear the cache when the server starts
-    clear_cache_on_start()
+    #clear_cache_on_start()
+    # Check if the cache is empty when the server starts
+    if cache.get('data_for_selected_files') is None:
+        load_data_into_cache()
 
     # Register the clear_cache_on_restart function to run before the first request
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False, threaded=True, port=5000)
 
