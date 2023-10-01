@@ -2,19 +2,49 @@
 {% block content %}
 
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<style>
+    /* Custom CSS for smaller checkboxes and single row display */
+    .athlete-checkbox-label {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 20px; /* Adjust the spacing between checkboxes */
+    }
+
+    .athlete-checkbox-label input[type="checkbox"].filled-in + .checkmark:after {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+</style>
+
 
 <!-- Add a placeholder for the graph -->
 <div id="graph"></div>
 
+<!-- Add selection checkboxes for each athlete -->
+<!--
+<div id="athlete-checkboxes">
+    {% for metadata in metadata_list|sort(attribute='athlete_name') %}
+        <label class="athlete-checkbox-label">
+            <input type="checkbox" class="filled-in athlete-checkbox" name="selected_files" value="{{ metadata.file_name }}" id="{{ metadata.file_name }}" />
+            <span class="checkmark"></span>
+            <span class="athlete-name">{{ metadata.athlete_name }}</span>
+        </label>
+    {% endfor %}
+</div>
+<br/><br/>
+-->
 <!-- Add a button to go back to the Uploaded Files page -->
+<!--
 <div>
     <a href="{{ url_for('uploaded_files') }}" class="btn btn-primary">Compare more Athletes</a>
 </div>
-
+-->
 <script>
     // Sample data for plotting (replace with your actual data)
     var selected_files = {{ selected_files | tojson | safe }};
     var data = {{ data | tojson | safe }};
+    var metadata_list = {{ metadata_list | tojson | safe }};
 
     // Extract control names and distances (replace this with your actual data)
     var control_names = {{ control_names | tojson | safe }};
@@ -22,31 +52,39 @@
 
     // Create traces for each selected file
     var traces = [];
+    var visibilityState = []; // Array to track trace visibility
 
     for (var i = 0; i < selected_files.length; i++) {
         var file = selected_files[i];
         var fileData = data[file];
+        var athleteName = metadata_list[i].athlete_name;
 
         // Create a trace for the current file
         var trace = {
             x: fileData.distances,
             y: fileData.banked_times,
             mode: 'lines',
-            name: file,
-            type: 'scatter'
+            name: athleteName,
+            type: 'scatter',
         };
 
         traces.push(trace);
+        visibilityState.push(true); // Initialize all traces as visible
     }
+
+    // Sort the traces by athlete names
+    traces.sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+    });
 
     // Create the layout for the graph
     var layout = {
         title: 'Paris Brest Paris 2023 - Team Asha. Banked Time Comparison', // Change the title
         xaxis: {
-            title: 'Distance (miles)'
+            title: 'Distance (miles)',
         },
         yaxis: {
-            title: 'Banked Time (hours)'
+            title: 'Banked Time (hours)',
         },
         // Add annotations for control names at the bottom
         annotations: control_names.map(function(name, index) {
@@ -56,18 +94,41 @@
                 text: name,
                 showarrow: false,
                 font: {
-                    size: 10
+                    size: 10,
                 },
                 xref: 'x',
                 yref: 'y',
-                textangle: -90
+                textangle: -90,
             };
         }),
-        height: 800 // Set the height of the graph to 800 pixels
+        height: 800, // Set the height of the graph to 800 pixels
     };
 
     // Create the plot with Plotly
     Plotly.newPlot('graph', traces, layout);
+
+    // Add event listeners to checkboxes
+    var checkboxes = document.querySelectorAll('.athlete-checkbox');
+
+    checkboxes.forEach(function(checkbox, index) {
+        checkbox.checked = visibilityState[index]; // Set checkbox state based on initial visibility
+
+        checkbox.addEventListener('change', function() {
+            // Update visibility state based on checkbox status
+            visibilityState[index] = this.checked;
+
+            // Toggle the visibility of the trace based on checkbox status
+            if (this.checked) {
+                Plotly.restyle('graph', { 'visible': true }, index); // Show the trace
+            } else {
+                Plotly.restyle('graph', { 'visible': 'legendonly' }, index); // Hide the trace in legend
+            }
+        });
+    });
+
 </script>
+
+
+
 
 {% endblock %}

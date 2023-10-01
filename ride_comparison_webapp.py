@@ -7,16 +7,18 @@ from datetime import timedelta
 import plotly.express as px
 import pandas as pd
 import os
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 from flask_caching import Cache
 from werkzeug.utils import secure_filename
 import json
+import secrets
+SECRET_KEY = secrets.token_hex(16)  # Generates a 32-character hexadecimal secret key
 
 # Create the Flask app
 app = Flask(__name__)
 # Configure cache
 app.config['CACHE_TYPE'] = 'simple'
-
+app.secret_key = SECRET_KEY
 # Create the cache instance
 cache = Cache(app)
 
@@ -267,196 +269,7 @@ def merge_breaks(actual_breaks, control_stops, stages):
     return merged_breaks, total_break_time
 
 
-def calculate_stages_actual(actual_elapsed_stream, stages, control_stops, actual_merged_stage_breaks, distances, elapsed_times):
-    actual = []
-    elapsed_stage_time = timedelta(seconds=0)
-    elapsed_stage_time_after_control = timedelta(seconds=0)
-
-    for i in range(len(stages)):
-        stage_id, start_control_id, end_control_id, stage_cutoff, stage_distance, \
-            elevation_gain, profile, elevation_difficulty, end_distance = stages[i]
-
-        start_distance = end_distance - stage_distance
-        #control_stops[start_control_id][2]
-        #end_distance = control_stops[end_control_id][2]
-        # Find the closest recorded distances to the control points
-        closest_end_distance = min(distances, key=lambda x: abs(x - (end_distance + CONTROL_DIST_MARGIN_OF_ERROR)))
-        if(i == 0):
-            closest_start_distance = min(distances, key=lambda x: abs(x - (start_distance)))
-        else:
-            closest_start_distance = min(distances, key=lambda x: abs(x - (start_distance + CONTROL_DIST_MARGIN_OF_ERROR)))
-
-        # Find the closest elapsed times to the control points
-        closest_start_time = elapsed_times[distances.index(closest_start_distance)]
-        closest_end_time = elapsed_times[distances.index(closest_end_distance)]
-
-
-        # Convert elapsed time to a datetime object
-        closest_start_datetime = start_time + timedelta(hours=closest_start_time)
-        closest_end_datetime = start_time + timedelta(hours=closest_end_time)
-
-        total_elapsed_time = closest_end_datetime - closest_start_datetime  # Calculate total elapsed time between control stops
-
-        # Calculate total stop time between control stops
-        total_break_between_controls = timedelta(seconds=0)
-        total_break_at_controls = timedelta(seconds=0)
-
-        for actual_merged_break in actual_merged_stage_breaks:
-            start, end, distance, duration, tag, brk_stage_id = actual_merged_break
-            if ((stage_id == brk_stage_id) and (tag == 'micro')):
-                total_break_between_controls += duration
-            if ((stage_id == brk_stage_id) and (tag == 'control')):
-                total_break_at_controls += duration
-
-        total_moving_time = total_elapsed_time - (total_break_between_controls + total_break_at_controls)  # Calculate total moving time between control stops
-
-        elapsed_stage_time = elapsed_stage_time_after_control + total_moving_time + total_break_between_controls
-        elapsed_stage_time_after_control = elapsed_stage_time + total_break_at_controls
-
-        # Calculate speed
-        distance_between_controls = closest_end_distance - closest_start_distance
-        if(total_moving_time.total_seconds() > 0):
-            speed_between_controls = distance_between_controls / (total_moving_time.total_seconds() / 3600.0)
-
-        print(f'stage: {stage_id}, break between controls: {total_break_between_controls}, break at control: {total_break_at_controls}, moving time: {total_moving_time}, elapsed_stage_time: {elapsed_stage_time}, elapsed_stage_time_after_control: {elapsed_stage_time_after_control}, distance_between_controls: {distance_between_controls}, speed_between_controls: {speed_between_controls}')
-        #print(f'closest_start_distance: {closest_start_distance}, closest_end_distance: {closest_end_distance}, closest_start_time: {closest_start_time}, closest_end_time: {closest_end_time}')
-        actual.append((stage_id, total_moving_time, total_break_between_controls, total_break_at_controls, elapsed_stage_time, elapsed_stage_time_after_control, speed_between_controls, closest_end_distance))
-    return actual
-
-from plotly.subplots import make_subplots
 from datetime import datetime
-
-def extract_from_planned_actual(planned, actual, stages):
-    plan_x = [0]
-    plan_y = [0]
-    dist_act = []
-    time_diff_act = []
-    color_act = []
-    labels = []
-    breaks_dist = []
-
-    # data for planned vs actual moving times and planned vs actual breaks
-    planned_moving_times = [0]
-    actual_moving_times = [0]
-
-    planned_breaks = []
-    actual_breaks = []
-    total_planned_breaks = timedelta(seconds=0)
-    total_planned_moving_time = timedelta(seconds=0)
-
-
-    for c in planned:
-        plan_x.append(c[7])
-        plan_x.append(c[7])
-        plan_y.append((c[4]).total_seconds()/3600)
-        plan_y.append((c[5]).total_seconds()/3600)
-
-    for i in range(len(actual)):
-        time_diff = timedelta(hours=parse_control_time(stages[i][3])) - actual[i][4]
-        if time_diff.total_seconds() > 0:
-            color = 'green'
-        else:
-            color = 'red'
-        dist_act.append(actual[i][7])
-        time_diff_act.append(time_diff.total_seconds()/3600)
-        color_act.append(color)
-        labels.append(f'{time_diff} ({actual[i][7]:.1f} miles)')
-        planned_moving_times.append(timedelta(hours=parse_control_time(planned[i][1])).total_seconds()/3600)
-        actual_moving_times.append((actual[i][1]).total_seconds()/3600)
-        planned_breaks.append(timedelta(hours=parse_control_time(planned[i][2])).total_seconds()/3600)
-        planned_breaks.append(timedelta(hours=parse_control_time(planned[i][3])).total_seconds()/3600)
-        actual_breaks.append((actual[i][2]).total_seconds()/3600)
-        actual_breaks.append((actual[i][3]).total_seconds()/3600)
-        total_planned_breaks += timedelta(hours=parse_control_time(planned[i][2])) + timedelta(hours=parse_control_time(planned[i][3]))
-        total_planned_moving_time += timedelta(hours=parse_control_time(planned[i][1]))
-        breaks_dist.append(stages[i][8] - stages[i][4]/2)
-        breaks_dist.append(stages[i][8])
-
-    return plan_x, plan_y, \
-           dist_act, time_diff_act, color_act, labels, \
-           planned_moving_times, actual_moving_times, \
-           planned_breaks, actual_breaks, breaks_dist, \
-           total_planned_breaks, total_planned_moving_time
-
-# Function to generate hex color codes based on the condition
-def get_line_color(value):
-    return '#FF0000' if value < 0 else '#00FF00'
-
-def display_graphs(fig, control_stops, stages):
-    # Create a list of annotations
-    annotations = []
-    control_dist = []
-
-    # Add annotations for control stops
-    for i in range(len(control_stops)):
-        _, control_name, control_distance = control_stops[i]
-        control_time = "0:00:00"
-        control_dist.append(control_distance)
-
-        for stage in stages:
-            _, _, end_control_id, stage_cutoff, *_ = stage
-            if i == end_control_id:
-                control_time = stage_cutoff
-                break
-        # Find the closest recorded distance to the control point
-        control_cutoff_time = parse_control_time(control_time)
-
-        #Row1: Control name annotations at bottom. x1y1
-        annotations.append(
-            go.layout.Annotation(
-                x=control_distance,
-                y=-3,
-                text=f'{control_name}',
-                showarrow=False,
-                arrowhead=2,
-                arrowsize=1,
-                arrowwidth=2,
-                arrowcolor='black',
-                opacity=1,
-                font=dict(size=10),
-                align='center',
-                valign='bottom',
-                xref="x1",
-                yref="y1",
-                textangle = -90
-            )
-        )
-    fig.update_xaxes(showticklabels=True) # show all the xticks
-
-    fig.update_layout(
-        title={
-            'text': 'Paris Brest Paris 2023 - Team Asha. Banked Time Comparison',
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'y':0.9,
-            'x':0.5,
-        },
-        width=2400,
-        height=1200,
-        xaxis=dict(title='Distance (miles)'),
-        yaxis=dict(title='Elapsed Time (hours)'),
-        annotations=annotations,
-    )
-
-    fig.show()
-
-
-
-def plot_line_graph(fig, name, color, distances, banked_times):
-
-    # Row 1: x1, y1. Also using y2 for some reason.
-    # Create a line chart for banked time
-    trace_banked_time = go.Scatter(
-        x=distances,
-        y=banked_times,
-        mode='lines',
-        name=name,
-        showlegend=True,
-        line=dict(color=color, width=1.5),  # Set line color and width
-    )
-    # Banked time line trace
-    fig.add_trace(trace_banked_time)
-
 
 @app.route('/')
 def upload_file():
@@ -466,7 +279,7 @@ def upload_file():
     #print(f'After removing 0th element Uploaded files: {uploaded_files}')
 
     #return render_template('uploaded_files.html', uploaded_files=uploaded_files)
-    return redirect('/uploaded_files')
+    return redirect('/show_results')
 
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -533,27 +346,51 @@ def uploaded_files():
                 print(f'metadata: {metadata}')
         else:
             metadata_list.append({})  # No metadata found
+    # Store metadata_list in the session
+    session['metadata_list'] = metadata_list
 
     return render_template('uploaded_files.html', selected_files=new_uploaded_files, metadata_list=metadata_list)
 
-@app.route('/show_results', methods=['POST'])
+@app.route('/show_results', methods=['GET', 'POST'])
 def show_results():
 
-    selected_files = request.form.getlist('selected_files')
+    uploaded_files = os.listdir(app.config['UPLOAD_FOLDER'])
+    print(f'Initial Uploaded files: {uploaded_files}')
+    uploaded_files.remove('.DS_Store')
+    selected_files = [dc for dc in uploaded_files if 'json' not in dc]
+    print(f'After removing 0th element and json files: {selected_files}')
+    # Retrieve metadata for selected files
+    metadata_list = []
+    for filename in selected_files:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        metadata_filename = filename + ".json"
+        metadata_file_path = os.path.join(app.config['UPLOAD_FOLDER'], metadata_filename)
+        # Check if the metadata file exists
+        if os.path.exists(metadata_file_path):
+            with open(metadata_file_path, 'r') as metadata_file:
+                metadata = json.load(metadata_file)
+                metadata_list.append(metadata)
+                print(f'metadata: {metadata}')
+        else:
+            metadata_list.append({})  # No metadata found
+
+    #selected_files = request.form.getlist('selected_files')
     # Create a dictionary to hold the data for the selected files
     data_for_selected_files = {}
     # Extract control names and distances from the control_stops array
     control_names = [control[1] for control in control_stops]
     control_distances = [control[2] for control in control_stops]
+    #metadata_list = session.get('metadata_list', [])
 
     # Check if the data is already cached
     cached_data = cache.get('data_for_selected_files')
     if cached_data:
+        print(f'In show_results: Loaded data from cache for {selected_files}')
         data_for_selected_files = cached_data
     else:
         load_data_into_cache()
 
-    return render_template('results.html', selected_files=selected_files, data=data_for_selected_files, control_names=control_names, control_distances=control_distances)
+    return render_template('results.html', selected_files=selected_files, data=data_for_selected_files, control_names=control_names, control_distances=control_distances, metadata_list=metadata_list)
 
 # Function to clear cache when the server restarts
 def clear_cache_on_start():
@@ -588,7 +425,10 @@ if __name__ == '__main__':
     #clear_cache_on_start()
     # Check if the cache is empty when the server starts
     if cache.get('data_for_selected_files') is None:
+        print("Cache is empty. in Main. Loading data into cache")
         load_data_into_cache()
+
+    control_stops, stages, planned = calculate_stages_plan()
 
     # Register the clear_cache_on_restart function to run before the first request
     app.run(debug=True, use_reloader=False, threaded=True, port=5000)

@@ -6,6 +6,77 @@
 <html>
 <head>
     <title>Athletes</title>
+        <script>
+            // Function to update "Athletes" master checkbox state and label
+            function updateMasterCheckboxState() {
+                var athleteCheckboxes = document.querySelectorAll(".athlete-checkbox");
+                var masterCheckbox = document.getElementById("select-all-athletes");
+                var athletesLabel = document.getElementById("athletes-label");
+
+                var allChecked = true;
+                var allUnchecked = true;
+
+                athleteCheckboxes.forEach(function (checkbox) {
+                    if (checkbox.checked) {
+                        allUnchecked = false;
+                    } else {
+                        allChecked = false;
+                    }
+                });
+
+                if (allChecked) {
+                    masterCheckbox.checked = true;
+                    masterCheckbox.indeterminate = false;
+                    athletesLabel.textContent = "Select All";
+                } else if (allUnchecked) {
+                    masterCheckbox.checked = false;
+                    masterCheckbox.indeterminate = false;
+                    athletesLabel.textContent = "Select All";
+                } else {
+                    masterCheckbox.indeterminate = true;
+                    athletesLabel.textContent = "Select All";
+                }
+            }
+
+            document.addEventListener("DOMContentLoaded", function () {
+                var masterCheckbox = document.getElementById("select-all-athletes");
+                var athleteCheckboxes = document.querySelectorAll(".athlete-checkbox");
+
+                // Initialize master checkbox state and label
+                updateMasterCheckboxState();
+
+                masterCheckbox.addEventListener("change", function () {
+                    // Update individual athlete checkboxes based on master checkbox state
+                    athleteCheckboxes.forEach(function (checkbox) {
+                        checkbox.checked = masterCheckbox.checked;
+                    });
+
+                    // Update master checkbox state and label based on individual checkboxes
+                    updateMasterCheckboxState();
+                });
+
+                athleteCheckboxes.forEach(function (checkbox) {
+                    checkbox.addEventListener("change", function () {
+                        // Update master checkbox state and label based on individual checkboxes
+                        updateMasterCheckboxState();
+                    });
+                });
+            });
+        </script>
+
+    <style>
+        /* Custom CSS for the "-" inside the checkbox */
+        #select-all-athletes[type="checkbox"].indeterminate::before {
+            content: '-';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+        }
+    </style>
+
+
 </head>
 <body>
     <h1></h1>
@@ -13,24 +84,42 @@
     <p></p>
     <h3>Compare Athletes: </h3><br/>
     <form action="/show_results" method="POST">
-
-        {% for metadata in metadata_list %}
-        <div class="form-group row">
-            <div >
-                <input type="checkbox" name="selected_files" value="{{ metadata.file_name }}">
+        <div class="container">
+            <div class="row">
+                <div class="col s12">
+                    <div class="input-field">
+                        <!-- "Athletes" master checkbox -->
+                        <label>
+                            <input type="checkbox" class="filled-in" id="select-all-athletes" />
+                            <span id="athletes-label" STYLE="font-size:18.0pt" STYLE="font-weight:bold"><span class="indeterminate"></span>Select All</span>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="col-6">
-                <label for="{{ metadata.file_name }}">{{ metadata.athlete_name }}</label>
+
+            {% for metadata in metadata_list %}
+            <div class="row">
+                <div class="col s12">
+                    <div class="input-field">
+                        <label>
+                            <input type="checkbox" class="filled-in athlete-checkbox" name="selected_files" value="{{ metadata.file_name }}" id="{{ metadata.file_name }}" />
+                            <span>{{ metadata.athlete_name }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <br><br>
+
+        <div class="row">
+            <div class="col s12">
+                <button class="waves-effect waves-light btn" type="submit">Show Results</button>
             </div>
         </div>
-        {% endfor %}
-
-       <hr>
-
-        <br>
-        <input type="submit" value="Show Results">
     </form>
-    <hr>
+
     <p></p>
 
 </body>
