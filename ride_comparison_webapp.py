@@ -1,26 +1,31 @@
 import fitparse
 import pytz
-import gpxpy
-import plotly.graph_objs as go
 import datetime
 from datetime import timedelta
-import plotly.express as px
-import pandas as pd
 import os
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_caching import Cache
 from werkzeug.utils import secure_filename
 import json
+from google.cloud import storage
+
 import secrets
 SECRET_KEY = secrets.token_hex(16)  # Generates a 32-character hexadecimal secret key
 
 # Create the Flask app
 app = Flask(__name__)
+storage_client = storage.Client()
+
+# Define your Google Cloud Storage bucket name
+BUCKET_NAME = 'ride-analyzer-files'
+
 # Configure cache
 app.config['CACHE_TYPE'] = 'simple'
 app.secret_key = SECRET_KEY
+
+cache = Cache(app, config={'CACHE_TYPE': 'filesystem', 'CACHE_DIR': '/tmp'})
 # Create the cache instance
-cache = Cache(app)
+#cache = Cache(app)
 
 
 start_time = None  # Define start_time here
@@ -361,6 +366,10 @@ def show_results():
     print(f'After removing 0th element and json files: {selected_files}')
     # Retrieve metadata for selected files
     metadata_list = []
+    # Create a dictionary to hold the data for the selected files
+    data_for_selected_files = {}
+    bucket = storage_client.bucket(BUCKET_NAME)
+
     for filename in selected_files:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         metadata_filename = filename + ".json"
@@ -373,23 +382,26 @@ def show_results():
                 print(f'metadata: {metadata}')
         else:
             metadata_list.append({})  # No metadata found
+        blob = bucket.blob(filename)
+        if blob != None and blob.exists():
+            print(f'File {filename} exists in the bucket. Downloading it')
+            data_for_selected_files[filename] = json.loads(blob.download_as_string())
+        else:
+            print(f'File {filename} does not exist in the bucket. Loading it from the source file and uploading it to the bucket')
+            data_for_selected_files[filename] = load_athlete_into_cache(data_for_selected_files, filename)
 
-    #selected_files = request.form.getlist('selected_files')
-    # Create a dictionary to hold the data for the selected files
-    data_for_selected_files = {}
     # Extract control names and distances from the control_stops array
     control_names = [control[1] for control in control_stops]
     control_distances = [control[2] for control in control_stops]
     #metadata_list = session.get('metadata_list', [])
 
     # Check if the data is already cached
-    cached_data = cache.get('data_for_selected_files')
-    if cached_data:
-        print(f'In show_results: Loaded data from cache for {selected_files}')
-        data_for_selected_files = cached_data
-    else:
-        load_data_into_cache()
-
+    #cached_data = cache.get('data_for_selected_files')
+    #if cached_data:
+    #    print(f'In show_results: Loaded data from cache for {selected_files}')
+    #    data_for_selected_files = cached_data
+    #else:
+    #    load_data_into_cache()
     return render_template('results.html', selected_files=selected_files, data=data_for_selected_files, control_names=control_names, control_distances=control_distances, metadata_list=metadata_list)
 
 # Function to clear cache when the server restarts
@@ -406,19 +418,33 @@ def load_data_into_cache():
     print(f'Loading data for {new_selected_files}')
     for file in new_selected_files:
         if (file != '.DS_Store'):
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file)
-            if os.path.exists(file_path):
-                # Load data from the file and format it as needed
-                # Example: actual_elapsed_stream, distances, banked_times = parse_fit_file(file_path)
-                actual_elapsed_stream, distances, elapsed_times, banked_times, _, _, actual_merged_stage_breaks, _ = parse_fit_file(file_path)
-                data_for_selected_files[file] = {'distances': distances, 'banked_times': banked_times}
-            else:
-                data_for_selected_files[file] = {'distances': [], 'banked_times': []}  # Handle file not found
-            print(f'Loaded data for {file_path}')
-
-
+            load_athlete_into_cache(data_for_selected_files, file)
     # Store the data in the cache
     cache.set('data_for_selected_files', data_for_selected_files)
+
+# Function to load athlete data into storage bucket
+def load_athlete_into_cache(data_for_selected_files, file):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file)
+    if os.path.exists(file_path):
+        # Load data from the file and format it as needed
+        # Example: actual_elapsed_stream, distances, banked_times = parse_fit_file(file_path)
+        actual_elapsed_stream, distances, elapsed_times, banked_times, _, _, actual_merged_stage_breaks, _ = parse_fit_file(file_path)
+        data_for_selected_files[file] = {'distances': distances, 'banked_times': banked_times}
+        print(f'Loaded data for {file_path}')
+        bucket = storage_client.bucket(BUCKET_NAME)
+        blob = bucket.blob(file)
+        if blob != None and blob.exists():
+            print(f'File {file} already exists in the bucket. Using it')
+        else:
+            # Upload data to the bucket
+            print(f'Uploading file: {file} to the bucket: {bucket}, blob: {blob}')
+            data_json = json.dumps(data_for_selected_files[file])
+            blob.upload_from_string(data_json)
+    else:
+        data_for_selected_files[file] = {'distances': [], 'banked_times': []}  # Handle file not found
+
+    return data_for_selected_files[file]
+
 
 if __name__ == '__main__':
     # Clear the cache when the server starts
@@ -430,6 +456,5 @@ if __name__ == '__main__':
 
     control_stops, stages, planned = calculate_stages_plan()
 
-    # Register the clear_cache_on_restart function to run before the first request
     app.run(debug=True, use_reloader=False, threaded=True, port=5000)
 

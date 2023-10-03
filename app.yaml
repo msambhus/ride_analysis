@@ -1,0 +1,15 @@
+env: flex
+runtime: python
+
+handlers:
+- url: /.*
+  script: ride_comparison_webapp.app
+- url: /static
+  static_dir: static
+  application_readable: true
+
+runtime_config:
+    operating_system: "ubuntu22"
+    runtime_version: "3.11"
+
+entrypoint: gunicorn -b :$PORT ride_comparison_webapp:app --timeout 900
