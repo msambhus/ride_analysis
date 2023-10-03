@@ -18,6 +18,8 @@ storage_client = storage.Client()
 
 # Define your Google Cloud Storage bucket name
 BUCKET_NAME = 'ride-analyzer-files'
+DATA_FILE_FOLDER = 'data_files/'
+SOURCE_FILE_FOLDER = 'source_files/'
 
 # Configure cache
 app.config['CACHE_TYPE'] = 'simple'
@@ -382,15 +384,19 @@ def show_results():
                 print(f'metadata: {metadata}')
         else:
             metadata_list.append({})  # No metadata found
-        blob = bucket.blob(filename)
+
+        full_file_path = DATA_FILE_FOLDER + filename
+        blob = bucket.blob(full_file_path)
         if blob != None and blob.exists():
-            print(f'File {filename} exists in the bucket. Downloading it')
+            print(f'File {full_file_path} exists in the bucket.')
             data_for_selected_files[filename] = json.loads(blob.download_as_string())
+            #print(f'After writing to data_for_selected_files: {data_for_selected_files}')
         else:
-            print(f'File {filename} does not exist in the bucket. Loading it from the source file and uploading it to the bucket')
+            print(f'File {full_file_path} does not exist in the bucket. Loading it from the source file and uploading it to the bucket')
             data_for_selected_files[filename] = load_athlete_into_cache(data_for_selected_files, filename)
 
-    # Extract control names and distances from the control_stops array
+    # Extract control names and distances from the cont
+    # rol_stops array
     control_names = [control[1] for control in control_stops]
     control_distances = [control[2] for control in control_stops]
     #metadata_list = session.get('metadata_list', [])
@@ -432,13 +438,14 @@ def load_athlete_into_cache(data_for_selected_files, file):
         data_for_selected_files[file] = {'distances': distances, 'banked_times': banked_times}
         print(f'Loaded data for {file_path}')
         bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(file)
+        full_file_path = DATA_FILE_FOLDER + file
+        blob = bucket.blob(full_file_path)
         if blob != None and blob.exists():
-            print(f'File {file} already exists in the bucket. Using it')
+            print(f'File {full_file_path} already exists in the bucket. Using it')
         else:
             # Upload data to the bucket
-            print(f'Uploading file: {file} to the bucket: {bucket}, blob: {blob}')
-            data_json = json.dumps(data_for_selected_files[file])
+            print(f'Uploading file: {full_file_path} to the bucket: {bucket}')
+            data_json = json.dumps(data_for_selected_files[full_file_path])
             blob.upload_from_string(data_json)
     else:
         data_for_selected_files[file] = {'distances': [], 'banked_times': []}  # Handle file not found

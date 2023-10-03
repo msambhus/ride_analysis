@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
+<!-- Include jQuery from a CDN (Content Delivery Network) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <style>
@@ -93,9 +95,6 @@
                 y: -5, // Adjust the Y position for better visibility
                 text: name,
                 showarrow: false,
-                font: {
-                    size: 10,
-                },
                 xref: 'x',
                 yref: 'y',
                 textangle: -90,
@@ -123,6 +122,65 @@
             } else {
                 Plotly.restyle('graph', { 'visible': 'legendonly' }, index); // Hide the trace in legend
             }
+        });
+    });
+
+    // Track legend click
+    $('#graph').on('plotly_legendclick', function(event, data) {
+        var legendItem = data.curveNumber; // This represents the legend item clicked
+        var athleteName = traces[legendItem].name; // Get the athlete name from the trace
+        console.log('Athlete Name: ' + athleteName);
+
+        gtag('event', 'legend_click', {
+            'event_category': 'Plotly Interaction',
+            'event_label': 'Legend Item Clicked: ' + athleteName,
+        });
+    });
+
+    // Track Plotly button clicks
+    document.getElementById('graph').on('plotly_relayout', function(eventData) {
+        // Check if the 'eventData' contains information about button clicks
+        if (eventData && eventData['xaxis.autorange'] === true) {
+            // Button click detected (auto range button)
+
+            // You can customize the event label and category as needed
+            var buttonLabel = "Auto Range Button Clicked";
+            var buttonCategory = "Plotly Interaction";
+
+            // Send the event tracking data to Google Analytics
+            gtag('event', 'button_click', {
+                'event_category': buttonCategory,
+                'event_label': buttonLabel,
+            });
+        }
+    });
+
+    // Track Plotly hover and click interactions
+    document.getElementById('graph').on('plotly_hover', function(eventData) {
+        // Hover interaction detected
+
+        // You can customize the event label and category as needed
+        var hoverLabel = "User Hovered Over Plot";
+        var hoverCategory = "Plotly Interaction";
+
+        // Send the event tracking data to Google Analytics
+        gtag('event', 'hover_interaction', {
+            'event_category': hoverCategory,
+            'event_label': hoverLabel,
+        });
+    });
+
+    document.getElementById('graph').on('plotly_click', function(eventData) {
+        // Click interaction detected
+
+        // You can customize the event label and category as needed
+        var clickLabel = "User Clicked on Plot";
+        var clickCategory = "Plotly Interaction";
+
+        // Send the event tracking data to Google Analytics
+        gtag('event', 'click_interaction', {
+            'event_category': clickCategory,
+            'event_label': clickLabel,
         });
     });
 
