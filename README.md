@@ -4,4 +4,3 @@ In August 2023, I did a 1200km Paris Brest Paris ride in under 90 hours. I wante
 
 It also compares performance of fellow riders in a strava flyby type of comparison. 
 
-
